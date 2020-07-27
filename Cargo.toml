@@ -1,0 +1,24 @@
+[package]
+name = "rust-csgo"
+version = "0.1.0"
+authors = ["Balen <barena.ekusuimii@gmail.com>"]
+edition = "2018"
+
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = true
+
+
+[dependencies]
+winapi = {version = "0.3.9", features = ["minwindef", "libloaderapi", "winnt", "windef", "processthreadsapi", "consoleapi", "winuser"]}
+vtables = { git = "https://github.com/not-wlan/vtables.git", rev = "8abc814"  }
+vtables_derive = { git = "https://github.com/balenamiaa/vtables_derive.git", rev = "53b982a" }
+netvars = { git = "https://github.com/balenamiaa/netvars.git", rev = "cd72756" }
+once_cell = "1.4.0"
+detour = "0.7.1"
+fnv = "1.0.7"
+bitflags = "1.2.1"
+lazy_static = "1.4.0"
