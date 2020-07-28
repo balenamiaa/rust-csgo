@@ -12,7 +12,6 @@ mod maths;
 mod memory;
 mod script_engine;
 mod structs;
-mod utilities;
 
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]

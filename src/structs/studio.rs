@@ -79,6 +79,37 @@ pub enum HitBoxes {
     Max,
 }
 
+use std::convert::TryFrom;
+
+impl TryFrom<usize> for HitBoxes {
+    type Error = ();
+
+    fn try_from(v: usize) -> Result<Self, Self::Error> {
+        match v {
+            x if x == HitBoxes::Head as usize => Ok(HitBoxes::Head),
+            x if x == HitBoxes::Neck as usize => Ok(HitBoxes::Neck),
+            x if x == HitBoxes::Pelvis as usize => Ok(HitBoxes::Pelvis),
+            x if x == HitBoxes::Stomach as usize => Ok(HitBoxes::Stomach),
+            x if x == HitBoxes::LowerChest as usize => Ok(HitBoxes::LowerChest),
+            x if x == HitBoxes::Chest as usize => Ok(HitBoxes::Chest),
+            x if x == HitBoxes::UpperChest as usize => Ok(HitBoxes::UpperChest),
+            x if x == HitBoxes::RightThigh as usize => Ok(HitBoxes::RightThigh),
+            x if x == HitBoxes::LeftThigh as usize => Ok(HitBoxes::LeftThigh),
+            x if x == HitBoxes::RightCalf as usize => Ok(HitBoxes::RightCalf),
+            x if x == HitBoxes::LeftCalf as usize => Ok(HitBoxes::LeftCalf),
+            x if x == HitBoxes::RightFoot as usize => Ok(HitBoxes::RightFoot),
+            x if x == HitBoxes::LeftFoot as usize => Ok(HitBoxes::LeftFoot),
+            x if x == HitBoxes::RightHand as usize => Ok(HitBoxes::RightHand),
+            x if x == HitBoxes::LeftHand as usize => Ok(HitBoxes::LeftHand),
+            x if x == HitBoxes::RightUpperArm as usize => Ok(HitBoxes::RightUpperArm),
+            x if x == HitBoxes::RightForeArm as usize => Ok(HitBoxes::RightForeArm),
+            x if x == HitBoxes::LeftUpperArm as usize => Ok(HitBoxes::LeftUpperArm),
+            x if x == HitBoxes::LeftForeArm as usize => Ok(HitBoxes::LeftForeArm),
+            _ => Err(()),
+        }
+    }
+}
+
 #[repr(C)]
 pub struct StudioBone {
     name_index: usize,

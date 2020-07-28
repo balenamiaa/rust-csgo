@@ -11,7 +11,7 @@ impl BHop {
 }
 
 impl Module for BHop {
-    fn pre_createmove(&mut self, cmd: &mut CUserCMD, frame_time: f32) -> () {
+    fn post_createmove(&mut self, cmd: &mut CUserCMD, frame_time: f32) -> () {
         if let Some(local_player) = Entity::local() {
             if !local_player.alive() {
                 return;

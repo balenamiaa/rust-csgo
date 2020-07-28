@@ -205,6 +205,9 @@ impl Entity {
     #[netvar(("DT_BasePlayer", "m_aimPunchAngle"))]
     pub fn aimpunch(&self) -> Vector {}
 
+    #[netvar(("DT_BasePlayer", "m_viewPunchAngle"))]
+    pub fn viewpunch(&self) -> Vector {}
+
     #[netvar(("DT_CSPlayer", "m_iShotsFired"))]
     pub fn shotsfired(&self) -> usize {}
 
@@ -239,7 +242,7 @@ impl Entity {
         self.origin() + self.view_offset()
     }
 
-    pub fn is_visible(&'static self, other: &'static Entity, position: Vector) -> bool {
+    pub fn is_visible(&self, other: &Entity, position: Vector) -> bool {
         let trace: Trace = unsafe { std::mem::zeroed() };
         let ray = Ray::new(self.eye().into(), position);
         let mut filter = TraceFilterGeneric::new(self);
@@ -335,6 +338,12 @@ impl From<EntityIndex> for Option<&'static Entity> {
         } else {
             Some(unsafe { std::mem::transmute::<_, &'static Entity>(ptr) })
         }
+    }
+}
+
+impl PartialEq<&'static Entity> for &'static Entity {
+    fn eq(&self, other: &&'static Entity) -> bool {
+        (*self as *const Entity).eq(&(*other as *const Entity))
     }
 }
 

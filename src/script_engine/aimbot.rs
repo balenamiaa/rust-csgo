@@ -29,11 +29,10 @@ impl Default for AimbotConfig {
 
 pub struct Aimbot {
     current_target: Option<&'static Entity>,
+    prev_target: Option<&'static Entity>,
     current_hitbox: Option<(HitBoxes, Vector)>,
     current_config: AimbotConfig,
     current_aimtime: Option<f32>,
-    /// true if target is found and we're at tick 0 since left click was pressed, false otherwise.
-    target_set_tick0: bool,
 }
 
 unsafe impl Send for Aimbot {}
@@ -43,19 +42,18 @@ impl Aimbot {
     pub fn new() -> Aimbot {
         Self {
             current_target: None,
+            prev_target: None,
             current_config: AimbotConfig::default(),
             current_hitbox: None,
             current_aimtime: None,
-            target_set_tick0: false,
         }
     }
 
     fn triggered(&mut self, local_player: &'static Entity, cmd: &mut CUserCMD) -> bool {
-        if cmd.buttons.contains(CmdButton::IN_ATTACK) {
+        if !cmd.buttons.contains(CmdButton::IN_ATTACK) {
             self.current_target = None;
             self.current_hitbox = None;
             self.current_aimtime = None;
-            self.target_set_tick0 = false;
 
             false
         } else {
@@ -66,14 +64,12 @@ impl Aimbot {
     fn set_target(&mut self, local_player: &'static Entity, cmd: &mut CUserCMD) -> bool {
         if let Some(old_target) = self.current_target {
             if old_target.alive() && !old_target.dormant() {
-                self.target_set_tick0 = false;
 
                 true
             } else {
                 self.current_target = None;
                 self.current_hitbox = None;
                 self.current_aimtime = None;
-                self.target_set_tick0 = false;
 
                 false
             }
@@ -105,8 +101,6 @@ impl Aimbot {
             });
 
             self.current_target = Some(*valid_targets.first().unwrap());
-
-            self.target_set_tick0 = true;
 
             true
         }
@@ -143,13 +137,13 @@ impl Aimbot {
                     let lp_eye = local_player.eye();
 
                     let a_fov = get_fov(
-                        cmd.view_angles,
+                        cmd.view_angles + local_player.viewpunch() + local_player.aimpunch() * 2e0 * 0.45e0,
                         calc_angle(lp_eye, a.1),
                         (lp_eye - a.1).len(),
                     );
 
                     let b_fov = get_fov(
-                        cmd.view_angles,
+                        cmd.view_angles + local_player.viewpunch() + local_player.aimpunch() * 2e0 * 0.45e0,
                         calc_angle(lp_eye, b.1),
                         (lp_eye - b.1).len(),
                     );
@@ -166,6 +160,15 @@ impl Aimbot {
         }
     }
 
+    /*
+                            smooth_fn: Some(Box::new(|time| {
+                            ((time.mul(2e0) - 1f32.div(2e0)).div(4e0).sin().powi(2)
+                                + (time - 1f32.div(2e0)).div(4e0).cos()
+                                - 1.2)
+                                .abs()
+                        })),
+                        */
+
     fn set_config(&mut self, local_player: &'static Entity, cmd: &mut CUserCMD) -> bool {
         use std::ops::{Div, Mul, Neg, Sub};
 
@@ -178,13 +181,12 @@ impl Aimbot {
                         pistol_mode: false,
                         lock: true,
                         smooth_fn: Some(Box::new(|time| {
-                            ((time.mul(2e0) - 1f32.div(2e0)).div(1.2e0).sin().powi(2)
-                                + (time - 1f32.div(2e0)).div(1.2e0).cos()
-                                - 1.2)
-                                .abs()
+                            let a = (2e0 * time - 1e0).abs();
+
+                            (a - 0.8e0).abs().div(2e0)
                         })),
-                        max_fov: 16e0,
-                        hitboxes: vec![HitBoxes::Head, HitBoxes::LowerChest],
+                        max_fov: 18e0,
+                        hitboxes: vec![HitBoxes::Head, HitBoxes::UpperChest],
                     };
 
                     true
@@ -195,8 +197,9 @@ impl Aimbot {
                         pistol_mode: false,
                         lock: false,
                         smooth_fn: Option::None, //ambiguity introduced due to ItemDefIndices::None
-                        max_fov: 24e0,
+                        max_fov: 27e0,
                         hitboxes: vec![
+                            HitBoxes::Head,
                             HitBoxes::Neck,
                             HitBoxes::Chest,
                             HitBoxes::Stomach,
@@ -224,7 +227,7 @@ impl Aimbot {
                         pistol_mode: true,
                         lock: false,
                         smooth_fn: Option::None, //ambiguity introduced due to ItemDefIndices::None
-                        max_fov: 14e0,
+                        max_fov: 8e0,
                         hitboxes: vec![HitBoxes::Head],
                     };
 
@@ -250,9 +253,9 @@ impl Aimbot {
                         return false;
                     }
 
-                    if self.target_set_tick0 == true
+                    if self.prev_target != self.current_target
                         && get_fov(
-                            cmd.view_angles,
+                            cmd.view_angles + local_player.viewpunch() + local_player.aimpunch() * 2e0 * 0.45e0,
                             calc_angle(local_player.eye(), current_hitbox.1),
                             (current_hitbox.1 - local_player.eye()).len(),
                         ) > self.current_config.max_fov
@@ -260,7 +263,6 @@ impl Aimbot {
                         self.current_target = None;
                         self.current_hitbox = None;
                         self.current_aimtime = None;
-                        self.target_set_tick0 = false;
 
                         return false;
                     }
@@ -269,43 +271,43 @@ impl Aimbot {
                         return false;
                     }
 
-                    let server_time =
+                    /*let server_time =
                         local_player.tickbase() as f32 * Globals::get().inv_tickspersecond;
                     if local_player.next_attack() > server_time {
                         return false;
-                    }
+                    }*/
 
                     if self.current_config.pistol_mode {
                         use ItemDefIndices::*;
                         let rem = current_weapon.clip1_rem();
                         match current_weapon.weapon_id() {
                             P250 => {
-                                if (13 - rem) % 2 == 0 {
+                                if (13 + 1 - rem) % 3 == 0 {
                                     return false;
                                 }
                             }
                             TEC9 => {
-                                if (18 - rem) % 2 == 0 {
+                                if (18 + 1 - rem) % 3 == 0 {
                                     return false;
                                 }
                             }
                             GLOCK => {
-                                if (20 - rem) % 2 == 0 {
+                                if (20 + 1 - rem) % 3 == 0 {
                                     return false;
                                 }
                             }
                             USP_SILENCER => {
-                                if (12 - rem) % 2 == 0 {
+                                if (12 + 1 - rem) % 2 == 0 {
                                     return false;
                                 }
                             }
                             HKP2000 => {
-                                if (13 - rem) % 2 == 0 {
+                                if (12 + 1 - rem) % 2 == 0 {
                                     return false;
                                 }
                             }
                             FIVESEVEN => {
-                                if (20 - rem) % 2 == 0 {
+                                if (20 + 1 - rem) % 3 == 0 {
                                     return false;
                                 }
                             }
@@ -315,7 +317,8 @@ impl Aimbot {
                         }
                     }
 
-                    current_weapon.next_primary_attack() <= server_time
+                    //current_weapon.next_primary_attack() <= server_time
+                    true
                 } else {
                     false
                 }
@@ -351,6 +354,7 @@ impl Aimbot {
 
                 if let Some(current_aimtime) = self.current_aimtime {
                     if let Some(ref smooth_fn) = self.current_config.smooth_fn {
+                        
                         target_angle = smooth_angle(
                             cmd.view_angles,
                             target_angle,
@@ -358,7 +362,7 @@ impl Aimbot {
                         );
                     }
 
-                    self.current_aimtime = Some(current_aimtime + frame_time)
+                    self.current_aimtime = Some(current_aimtime + Globals::get().inv_tickspersecond)
                 } else {
                     self.current_aimtime = Some(f32::default());
 
@@ -368,6 +372,8 @@ impl Aimbot {
                 cmd.view_angles = target_angle;
             }
         }
+
+        self.prev_target = self.current_target;
     }
 }
 

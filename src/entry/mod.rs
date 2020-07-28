@@ -11,6 +11,8 @@ use crate::script_engine::ScriptEngine;
 use crate::structs::{CUserCMD, PanelType};
 use winapi::um::consoleapi::AllocConsole;
 
+const LUA_SCRIPTS_DIR: &'static str = "C:/CSScripts/";
+
 type FnCreateMove = unsafe extern "stdcall" fn(c_float, *mut CUserCMD) -> bool;
 type FnPaintTraverse =
     unsafe extern "thiscall" fn(&'static PanelInterface, usize, bool, bool) -> ();
@@ -21,25 +23,23 @@ static_detour! {
 }
 
 fn createmove_detour(input_sample_frametime: f32, cmd: *mut CUserCMD) -> bool {
+    let ret_value: bool = unsafe { CreateMoveHook.call(input_sample_frametime, cmd) };
+
     unsafe {
-        {
-            let local_ptr =
-                EntityList::get().entity_ptr_from_index(EngineClient::get().local_player_index());
-            if !local_ptr.is_null() {
-                *interfaces::LOCAL_PLAYER_PTR.lock().unwrap() = local_ptr as usize;
-            }
+        let local_ptr =
+            EntityList::get().entity_ptr_from_index(EngineClient::get().local_player_index());
+        if !local_ptr.is_null() {
+            *interfaces::LOCAL_PLAYER_PTR.lock().unwrap() = local_ptr as usize;
         }
-
-        ScriptEngine::global()
-            .fire_pre_createmove(std::mem::transmute(cmd), input_sample_frametime);
-
-        let ret_value: bool = unsafe { CreateMoveHook.call(input_sample_frametime, cmd) };
-
-        ScriptEngine::global()
-            .fire_post_createmove(std::mem::transmute(cmd), input_sample_frametime);
-
-        ret_value
     }
+
+    ScriptEngine::global().set_localplayer();
+    ScriptEngine::global().update_entities();
+
+    ScriptEngine::global()
+        .fire_post_createmove(unsafe { std::mem::transmute(cmd) }, input_sample_frametime);
+
+    ret_value
 }
 
 fn painttraverse_detour(
@@ -109,7 +109,7 @@ pub unsafe fn on_attach(dll_module: HINSTANCE) -> () {
                 .enable()
                 .expect("Couldn't enable hook for painttraverse!");
 
-            ScriptEngine::global().initialize();
+            ScriptEngine::global().initialize(LUA_SCRIPTS_DIR);
         })
         .unwrap_or_else(|_data| {
             FreeLibraryAndExitThread(sync_dll_module as HINSTANCE, 1213);

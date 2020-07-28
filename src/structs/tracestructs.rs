@@ -96,22 +96,22 @@ pub enum TraceType {
 }
 
 pub trait TraceFilterTrait {
-    fn should_hit_entity(&self, entity: &'static Entity, contents_mask: u32) -> bool;
+    fn should_hit_entity(&self, entity: &Entity, contents_mask: u32) -> bool;
     fn get_trace_type(&self) -> TraceType;
 }
 
 #[repr(C)]
 pub struct TraceFilterGeneric {
     vtable: usize,
-    skip: &'static Entity,
+    skip: *const Entity,
     vec_vtable: Vec<usize>,
 }
 
 impl TraceFilterGeneric {
-    pub fn new(skip: &'static Entity) -> Self {
+    pub fn new(skip: &Entity) -> Self {
         extern "thiscall" fn should_hit_entity_wrapper(
             this: &TraceFilterGeneric,
-            entity: &'static Entity,
+            entity: &Entity,
             contents_mask: u32,
         ) -> bool {
             TraceFilterGeneric::should_hit_entity(this, entity, contents_mask)
@@ -135,7 +135,7 @@ impl TraceFilterGeneric {
 }
 
 impl TraceFilterTrait for TraceFilterGeneric {
-    fn should_hit_entity(&self, entity: &'static Entity, contents_mask: u32) -> bool {
+    fn should_hit_entity(&self, entity: &Entity, contents_mask: u32) -> bool {
         entity as *const _ as usize != self.skip as *const _ as usize
     }
 
